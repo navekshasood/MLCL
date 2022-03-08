@@ -6,8 +6,11 @@ import numpy as np
 import algorithms as algs
  
 def loadcsv(filename):
-    lines = csv.reader(open(filename, "rb"))
-    dataset = list(lines)
+    #lines = csv.reader(open(filename, "rb"))
+    with open(filename, "r", encoding="utf-8") as f:
+      lines = csv.reader(f)
+      dataset = list(lines)
+
     for i in range(len(dataset)):
         dataset[i] = [float(x) for x in dataset[i]]
     return dataset
@@ -54,18 +57,19 @@ if __name__ == '__main__':
     splitratio = 0.67
     dataset = loadcsv(filename)
     trainset, testset = splitdataset(dataset, splitratio)
-    print('Split {0} rows into train={1} and test={2} rows').format(len(dataset), trainset[0].shape[0], testset[0].shape[0])
+    #print('Split {0} rows into train={1} and test={2} rows').format(len(dataset), trainset[0].shape[0], testset[0].shape[0])
+    print(f'Split {len(dataset)} rows into train={trainset[0].shape[0]} and test={testset[0].shape[0]} rows')
     classalgs = {'Random': algs.Classifier(),
                  'Naive Bayes': algs.NaiveBayes(),
                  'Logistic Regression': algs.LogitReg()
                  }
         
-    for learnername, learner in classalgs.iteritems():
-        print 'Running learner = ' + learnername
+    for learnername, learner in classalgs.items():
+        print('Running learner = ' + learnername)
         # Train model
         learner.learn(trainset[0], trainset[1])
         # test model
         predictions = learner.predict(testset[0])
         accuracy = getaccuracy(testset[1], predictions)
-        print 'Accuracy for ' + learnername + ': ' + str(accuracy)
+        print('Accuracy for ' + learnername + ': ' + str(accuracy))
  

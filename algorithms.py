@@ -46,10 +46,10 @@ class LogitReg(Classifier):
         return ytest
  
     def logit_cost(self, theta,X,y): 
-    	tt = X.shape[0] # number of training examples
-    	theta = np.reshape(theta,(len(theta),1))
+        tt = X.shape[0] # number of training examples
+        theta = np.reshape(theta,(len(theta),1))
     	
-    	J = (1./tt) * (-np.transpose(y).dot(np.log(utils.sigmoid(X.dot(theta)))) - np.transpose(1-y).dot(np.log(1-utils.sigmoid(X.dot(theta)))))
+        J = (1./tt) * (-np.transpose(y).dot(np.log(utils.sigmoid(X.dot(theta)))) - np.transpose(1-y).dot(np.log(1-utils.sigmoid(X.dot(theta)))))
     	
     	# When you write your own minimizers, you will also return a gradient here
         return J[0]#,grad
@@ -74,7 +74,7 @@ class NeuralNet(Classifier):
         pass
             
     def predict(self,Xtest):
-	pass
+      pass
     
     def evaluate(self, inputs):
-	pass
+      pass

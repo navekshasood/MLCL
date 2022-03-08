@@ -27,4 +27,4 @@ def threshold_probs(probs):
             
 def fmin_simple(loss, initparams):
     """ Temporarily simply calls fmin in scipy, should be replaced by your own personally written method """                   
-    return fmin(loss, initparams);
+    return fmin(loss, initparams)
