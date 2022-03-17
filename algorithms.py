@@ -24,12 +24,18 @@ class Classifier:
             
 class NaiveBayes(Classifier):
 
-    def __init__( self ):
+    def __init__( self, dataset, class_0=None, class_1=None):
         """ Initializes parameters for a naive bayes model """
+        self.dataset = dataset
         self.num_classes = 2
-        self.num_features = 8
+        self.num_features = None
+        self.num_samples = None
         self.weights = None
         self.P_y = None
+        if class_0 is not None:
+          self.class_0 = class_0
+        if class_1 is not None:
+          self.class_1 = class_1
         
     # Uncomment and define, as currently simply does parent    
 
@@ -40,59 +46,100 @@ class NaiveBayes(Classifier):
         for label in range(self.num_classes):
           sum_y[label] = (ytrain == label).sum()
         self.P_y = sum_y / sum_y.sum()
-        #print(f"P_y:\n {self.P_y}")
+        print(f"P_y:\n {self.P_y}")
 
         ## create lookup dict for each value of each feature for each class
-        class_0 = {k: Counter() for k in range(self.num_features)}
-        class_1 = {k: Counter() for k in range(self.num_features)}
+        #print(Xtrain.shape)
+        self.num_features = Xtrain.shape[1]
+        self.num_samples = Xtrain.shape[0]
 
-        num_samples = Xtrain.shape[0]
-        for i in range(num_samples):
-          for j in range(self.num_features):
-            feature = Xtrain[i][j]
-            if ytrain[i] == 0:
-              class_0[j][feature] += 1
-            elif ytrain[i] == 1:
-              class_1[j][feature] += 1
+        if self.dataset == 'disease':
+          class_0 = {k: Counter() for k in range(self.num_features)}
+          class_1 = {k: Counter() for k in range(self.num_features)}
+          for i in range(self.num_samples):
+            for j in range(self.num_features):
+              feature = Xtrain[i][j]
+              if ytrain[i] == 0:
+                class_0[j][feature] += 1
+              elif ytrain[i] == 1:
+                class_1[j][feature] += 1
+          for feature_category in class_0: # 0-7 for disease, vocab for IMDB
+            for feature_value in class_0[feature_category]: # iterate through feature values
+              ## if feature in both classes, average out
+              if feature_value in class_1[feature_category]:
+                total = class_0[feature_category][feature_value] + class_1[feature_category][feature_value]
+                class_0[feature_category][feature_value] /= total
+                class_1[feature_category][feature_value] /= total
+              ## if feature value only in one class, P(feature value|class) = 1.0
+              else:
+                class_0[feature_category][feature_value] = 1.0
+          for feature_category in class_1: # 0-7 for disease
+            for feature_value in class_1[feature_category]: # iterate through feature values
+              ## if feature value only in one class, P(feature value|class) = 1.0
+              if feature_value not in class_0[feature_category]: # left-overs from previous loop
+                class_1[feature_category][feature_value] = 1.0 
 
-        for feature_category in class_0: # 0-7
-          for feature_value in class_0[feature_category]: # iterate through feature values
+        elif self.dataset == 'IMDB':
+          class_0 = {k: Counter() for k in range(1)}
+          class_1 = {k: Counter() for k in range(1)}
+          #print(f"type:{type(Xtrain[0])}")
+          # total freq counts for each word for each class
+          freq_0 = np.asarray(self.class_0.sum(axis=0))[0]
+          freq_1 = np.asarray(self.class_1.sum(axis=0))[0]
+          for word_index in range(self.num_features):
+            class_0[0][word_index] += freq_0[word_index]
+            class_1[0][word_index] += freq_1[word_index]
+          for word in class_0[0]:
+            if word in class_1[0]:
             ## if feature in both classes, average out
-            if feature_value in class_1[feature_category]:
-              total = class_0[feature_category][feature_value] + class_1[feature_category][feature_value]
-              class_0[feature_category][feature_value] /= total
-              class_1[feature_category][feature_value] /= total
+              total = class_0[0][word] + class_1[0][word]
+              class_0[0][word] /= total
+              class_1[0][word] /= total
             ## if feature value only in one class, P(feature value|class) = 1.0
             else:
-              class_0[feature_category][feature_value] = 1.0
-
-        for feature_category in class_1: # 0-7
-          for feature_value in class_1[feature_category]: # iterate through feature values
-            ## if feature value only in one class, P(feature value|class) = 1.0
-            if feature_value not in class_0[feature_category]: # left-overs from previous loop
-              class_1[feature_category][feature_value] = 1.0 
+              class_0[0][word] = 1.0
+          for word in class_1[0]:
+              ## if feature value only in one class, P(feature value|class) = 1.0
+              if word not in class_0[0]: # left-overs from previous loop
+                class_1[0][word] = 1.0 
         
+        #print(class_1[0].items())
         ## dict of learned probabilities
         ## {class 1: feature 0-7: values, class 2: feature 0-7: values}
         self.weights = {0 : class_0, 1 : class_1}
+        #print(self.weights[0][0].items())
 
     def predict(self, Xtest):
-      
+
       ## argmax_k( sum_i( log P(feature_i|class_k) + log P(class_k)))
       predictions = []
-      num_samples = Xtest.shape[0]
-      for i in range(num_samples): # iterate through rows
+      for i in range(Xtest.shape[0]): # iterate through rows
+        if i % 1000 == 0:
+          print(f"SAMPLE: {i}\n" + "-"*100)
         summation = np.zeros((self.num_classes))
         for j in range(self.num_features): # iterate through each feature
           ## grab the probability from the lookup table
-          probability_0 = self.weights[0][j][Xtest[i][j]]
-          probability_1 = self.weights[1][j][Xtest[i][j]]
+          if self.dataset == 'disease':
+            probability_0 = self.weights[0][j][Xtest[i][j]]
+            probability_1 = self.weights[1][j][Xtest[i][j]]
+          elif self.dataset == 'IMDB':
+            probability_0 = None
+            probability_1 = None
+            sample = Xtest[i].toarray()[0]
+            if sample[j] > 0: # if this word appears in the test sample...
+              probability_0 = self.weights[0][0][j]
+              probability_1 = self.weights[1][0][j]
 
           ## accomodate unseen values and values seen only in one class
           # use logs to avoid underflow
           # for unseen values, here I just used a prob of 0.5
           # for values seen only in one class, I used 0.01 for the other class
           # there are probably better ways of doing this
+
+          ## for IMDB, if word not in test set, skip this iteration
+          if probability_0 == probability_1 == None:
+            continue
+
           if probability_0 == probability_1 == 0.0: # unseen
             summation[0] += log(0.5)
             summation[1] += log(0.5)
@@ -112,6 +159,7 @@ class NaiveBayes(Classifier):
         summation[0] += log(self.P_y[0])
         summation[1] += log(self.P_y[1])
         predictions.append(np.argmax(summation))
+        #print(f"Predictions for sample {i}: {predictions[i]}")
 
       return predictions
     
