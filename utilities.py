@@ -25,6 +25,13 @@ def threshold_probs(probs):
     classes[probs < 0.5] = 0
     return classes
             
-def fmin_simple(loss, initparams):
-    """ Temporarily simply calls fmin in scipy, should be replaced by your own personally written method """                   
-    return fmin(loss, initparams)
+#def fmin_simple(loss, initparams):
+#    """ Temporarily simply calls fmin in scipy, should be replaced by your own personally written method """                   
+#
+#    return fmin(loss, initparams)
+
+def gradient_descent(lr, theta, X, y):
+    ## gradient descent
+    m = y.size
+    theta = theta - lr*(1.0/m) * np.dot(np.transpose(X),(np.dot(X,theta)-y))
+    return theta

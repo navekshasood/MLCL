@@ -120,12 +120,21 @@ class LogitReg(Classifier):
 
     def __init__( self ):
         self.weights = None
+        self.learning_rate = .01
+        self.num_iters = 100
         
     def learn(self, Xtrain, ytrain):
         """ Learns using the traindata """
         self.weights = np.zeros(Xtrain.shape[1],)
-        lossfcn = lambda w: self.logit_cost(w, Xtrain,ytrain)
-        self.weights = utils.fmin_simple(lossfcn, self.weights)
+        #lossfcn = lambda w: self.logit_cost(w, Xtrain,ytrain)
+        #self.weights = utils.fmin_simple(lossfcn, self.weights)
+
+        ## runs gradient descent, I avoided putting the loop in logit_cost()
+        ## gradient descent formula is same as for linear regression
+        ## difference is that error is calculated differenty
+        for i in range(0, self.num_iters):
+          cost = self.logit_cost(self.weights, Xtrain, ytrain) # currently don't do anything with this
+          self.weights = utils.gradient_descent(self.learning_rate, self.weights, Xtrain, ytrain)
         
     def predict(self, Xtest):
         probs = utils.sigmoid(np.dot(Xtest, self.weights))
@@ -135,9 +144,12 @@ class LogitReg(Classifier):
     def logit_cost(self, theta,X,y): 
         tt = X.shape[0] # number of training examples
         theta = np.reshape(theta,(len(theta),1))
-    	
+        m = y.size
+
         J = (1./tt) * (-np.transpose(y).dot(np.log(utils.sigmoid(X.dot(theta)))) - np.transpose(1-y).dot(np.log(1-utils.sigmoid(X.dot(theta)))))
     	
+      ## should the loop for gradient descent be in here instead of in learn()?
+
     	# When you write your own minimizers, you will also return a gradient here
         return J[0]#,grad
         
