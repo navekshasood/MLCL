@@ -200,16 +200,16 @@ class NaiveBayes(Classifier):
 
 class LogitReg(Classifier):
 
-    def __init__( self , learning_rate, num_iterations, run_stochastic=None):
+    def __init__( self, dataset, learning_rate, num_iterations, run_stochastic):
 
         self.weights = None
+        self.dataset = dataset
         self.learning_rate = learning_rate
         self.num_iters = num_iterations
 
         ## choose regular or stochastic gradient descent
         ## need to do stochastic for IMDB dataset
-        if run_stochastic is not None:
-          self.run_stochastic = run_stochastic
+        self.run_stochastic = run_stochastic
         
     def learn(self, Xtrain, ytrain):
         """ Learns using the traindata """
@@ -223,6 +223,7 @@ class LogitReg(Classifier):
         ## stochastic gradient descent
         if self.run_stochastic == True:
           num_samples = Xtrain.shape[0]
+          #num_samples = 1 #testing
           for i in range(self.num_iters):
             #if i % 10 == 0:
             print("-"*100 + f"\nITERATION: {i}\n" + "-"*100)
@@ -241,7 +242,12 @@ class LogitReg(Classifier):
             self.weights = utils.gradient_descent(self.learning_rate, self.weights, Xtrain, ytrain)
         
     def predict(self, Xtest):
-        probs = utils.sigmoid(np.dot(Xtest, self.weights))
+        if self.dataset == "IMDB":
+          ##convert sparse matrix to array so we can pass to sigmoid
+          Xtest_conv = Xtest.toarray()
+        elif self.dataset == "disease":
+          Xtest_conv = Xtest
+        probs = utils.sigmoid(np.dot(Xtest_conv, self.weights))
         ytest = utils.threshold_probs(probs)  
         return ytest
  

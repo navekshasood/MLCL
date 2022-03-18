@@ -134,7 +134,7 @@ if __name__ == '__main__':
       print(f'Split {len(dataset)} rows into train={trainset[0].shape[0]} and test={testset[0].shape[0]} rows')
       classalgs = {'Random': algs.Classifier(),
                   'Naive Bayes': algs.NaiveBayes('disease'),
-                  'Logistic Regression': algs.LogitReg(learning_rate =.01, num_iterations=100)
+                  'Logistic Regression': algs.LogitReg(dataset='disease',learning_rate =.01, num_iterations=100, run_stochastic=False)
                   }
 
     elif filename == 'IMDB_Dataset.csv':
@@ -142,8 +142,8 @@ if __name__ == '__main__':
       trainset, testset, class_0, class_1 = splitIMDB(dataset)
       print(f'Split {len(dataset)} rows into train={trainset[0].shape[0]} and test={testset[0].shape[0]} rows')
       classalgs = {'Random': algs.Classifier(),
-                  #'Naive Bayes': algs.NaiveBayes('IMDB', class_0, class_1),
-                  'Logistic Regression': algs.LogitReg(learning_rate=.01, num_iterations=1, run_stochastic=True)
+                  'Naive Bayes': algs.NaiveBayes('IMDB', class_0, class_1),
+                  'Logistic Regression': algs.LogitReg(dataset='IMDB',learning_rate=.01, num_iterations=10, run_stochastic=True)
                   }
         
     for learnername, learner in classalgs.items():
