@@ -131,8 +131,9 @@ class NaiveBayes(Classifier):
       predictions = []
 
       for i in range(num_test_samples): # iterate through rows
+
         if i % 1000 == 0:
-          print(f"SAMPLE: {i}\n" + "-"*100)
+          print("-"*100 + f"\nSAMPLE: {i}\n" + "-"*100)
 
         ## create array for storing summation values, to be used with argmax
         summation = np.zeros((self.num_classes))
@@ -199,23 +200,45 @@ class NaiveBayes(Classifier):
 
 class LogitReg(Classifier):
 
-    def __init__( self ):
+    def __init__( self , learning_rate, num_iterations, run_stochastic=None):
+
         self.weights = None
-        self.learning_rate = .01
-        self.num_iters = 100
+        self.learning_rate = learning_rate
+        self.num_iters = num_iterations
+
+        ## choose regular or stochastic gradient descent
+        ## need to do stochastic for IMDB dataset
+        if run_stochastic is not None:
+          self.run_stochastic = run_stochastic
         
     def learn(self, Xtrain, ytrain):
         """ Learns using the traindata """
         self.weights = np.zeros(Xtrain.shape[1],)
+
         #lossfcn = lambda w: self.logit_cost(w, Xtrain,ytrain)
         #self.weights = utils.fmin_simple(lossfcn, self.weights)
 
-        ## runs gradient descent, I avoided putting the loop in logit_cost()
-        ## gradient descent formula is same as for linear regression
-        ## difference is that error is calculated differenty
-        for i in range(0, self.num_iters):
-          cost = self.logit_cost(self.weights, Xtrain, ytrain) # currently don't do anything with this
-          self.weights = utils.gradient_descent(self.learning_rate, self.weights, Xtrain, ytrain)
+        ## utilizes gradient descent, I avoided putting the loop in logit_cost()
+
+        ## stochastic gradient descent
+        if self.run_stochastic == True:
+          num_samples = Xtrain.shape[0]
+          for i in range(self.num_iters):
+            #if i % 10 == 0:
+            print("-"*100 + f"\nITERATION: {i}\n" + "-"*100)
+            for j in range(num_samples):
+              if j % 5000 == 0:
+                print("-"*100 + f"\nSAMPLE: {j}\n" + "-"*100)
+              cost = self.logit_cost(self.weights, Xtrain, ytrain) # currently don't do anything with this
+              self.weights = utils.gradient_descent(self.learning_rate, self.weights, Xtrain[j].toarray(), ytrain[j])
+
+        ## batch gradient descent
+        else:
+          for i in range(self.num_iters):
+            #if i % 10 == 0:
+            #  print(f"ITERATION: {i}\n" + "-"*100)
+            cost = self.logit_cost(self.weights, Xtrain, ytrain) # currently don't do anything with this
+            self.weights = utils.gradient_descent(self.learning_rate, self.weights, Xtrain, ytrain)
         
     def predict(self, Xtest):
         probs = utils.sigmoid(np.dot(Xtest, self.weights))
@@ -259,4 +282,3 @@ class NeuralNet(Classifier):
     def evaluate(self, inputs):
       pass
 
-#Accuracy for Naive Bayes: 85.22999999999999

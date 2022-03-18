@@ -134,16 +134,16 @@ if __name__ == '__main__':
       print(f'Split {len(dataset)} rows into train={trainset[0].shape[0]} and test={testset[0].shape[0]} rows')
       classalgs = {'Random': algs.Classifier(),
                   'Naive Bayes': algs.NaiveBayes('disease'),
-                  'Logistic Regression': algs.LogitReg()
+                  'Logistic Regression': algs.LogitReg(learning_rate =.01, num_iterations=100)
                   }
 
-    elif filename == 'IMDB':
+    elif filename == 'IMDB_Dataset.csv':
       dataset = loadIMDB(filename)
       trainset, testset, class_0, class_1 = splitIMDB(dataset)
       print(f'Split {len(dataset)} rows into train={trainset[0].shape[0]} and test={testset[0].shape[0]} rows')
       classalgs = {'Random': algs.Classifier(),
-                  'Naive Bayes': algs.NaiveBayes('IMDB', class_0, class_1),
-                  'Logistic Regression': algs.LogitReg()
+                  #'Naive Bayes': algs.NaiveBayes('IMDB', class_0, class_1),
+                  'Logistic Regression': algs.LogitReg(learning_rate=.01, num_iterations=1, run_stochastic=True)
                   }
         
     for learnername, learner in classalgs.items():
@@ -155,3 +155,6 @@ if __name__ == '__main__':
         accuracy = getaccuracy(testset[1], predictions)
         print('Accuracy for ' + learnername + ': ' + str(accuracy))
  
+## IMDB results:
+#Accuracy for Naive Bayes: 85.22999999999999
+#Accuracy for Logistic Regression:
