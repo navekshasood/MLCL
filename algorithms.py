@@ -1,5 +1,3 @@
-from collections import defaultdict
-from unicodedata import category
 import numpy as np
 import utilities as utils
 from collections import Counter
@@ -26,19 +24,21 @@ class NaiveBayes(Classifier):
 
     def __init__( self, dataset, class_0=None, class_1=None):
         """ Initializes parameters for a naive bayes model """
-        self.dataset = dataset
-        self.num_classes = 2
-        self.num_features = None
-        self.num_samples = None
-        self.weights = None
-        self.P_y = None
+
+        self.dataset = dataset # name of dataset
+        self.num_classes = 2 # number of classes (0 and 1)
+        self.num_features = None # 0-7 for disease, vocab size for IMDB
+        self.num_samples = None # number of samples (num of reviews for IMDB)
+        self.weights = None # learned weights for each feature for each class
+        self.P_y = None # P(y), probability of each label
+
+        ## optional arguments, relevant for IMDB
+        ## class-separated data
         if class_0 is not None:
           self.class_0 = class_0
         if class_1 is not None:
           self.class_1 = class_1
         
-    # Uncomment and define, as currently simply does parent    
-
     def learn(self, Xtrain, ytrain):
 
         ## calculate probability for each class
@@ -46,14 +46,17 @@ class NaiveBayes(Classifier):
         for label in range(self.num_classes):
           sum_y[label] = (ytrain == label).sum()
         self.P_y = sum_y / sum_y.sum()
-        print(f"P_y:\n {self.P_y}")
+        #print(f"P_y:\n {self.P_y}")
 
         ## create lookup dict for each value of each feature for each class
-        #print(Xtrain.shape)
         self.num_features = Xtrain.shape[1]
         self.num_samples = Xtrain.shape[0]
 
         if self.dataset == 'disease':
+          ## key is column number in disease.csv, value is a Counter()
+          ## where Counter() key is the actual number, value is the frequency count
+          ## {column : {value_for_that_sample : freq_count}}
+          ## freq_count then converted to a probability
           class_0 = {k: Counter() for k in range(self.num_features)}
           class_1 = {k: Counter() for k in range(self.num_features)}
           for i in range(self.num_samples):
@@ -63,7 +66,9 @@ class NaiveBayes(Classifier):
                 class_0[j][feature] += 1
               elif ytrain[i] == 1:
                 class_1[j][feature] += 1
-          for feature_category in class_0: # 0-7 for disease, vocab for IMDB
+
+          ## convert frequency counts to probability
+          for feature_category in class_0: # columns in disease.csv (0-7)
             for feature_value in class_0[feature_category]: # iterate through feature values
               ## if feature in both classes, average out
               if feature_value in class_1[feature_category]:
@@ -73,89 +78,117 @@ class NaiveBayes(Classifier):
               ## if feature value only in one class, P(feature value|class) = 1.0
               else:
                 class_0[feature_category][feature_value] = 1.0
-          for feature_category in class_1: # 0-7 for disease
-            for feature_value in class_1[feature_category]: # iterate through feature values
-              ## if feature value only in one class, P(feature value|class) = 1.0
-              if feature_value not in class_0[feature_category]: # left-overs from previous loop
+
+          ## convert feature_values that only appear in other class 
+          for feature_category in class_1:
+            for feature_value in class_1[feature_category]:
+              if feature_value not in class_0[feature_category]:
                 class_1[feature_category][feature_value] = 1.0 
 
         elif self.dataset == 'IMDB':
+          ## first key is redundant in IMDB.csv, value is a Counter()
+          ## where Counter() key is each word in the vocabulary, value is the frequency count
+          ## {0 : {word : freq_count}}
+          ## freq_count then converted to a probability
           class_0 = {k: Counter() for k in range(1)}
           class_1 = {k: Counter() for k in range(1)}
-          #print(f"type:{type(Xtrain[0])}")
-          # total freq counts for each word for each class
+          #print(f"type:{type(Xtrain[0])}") 
+
+          ## sum columns of the sparse BOW matrix
+          ## results in [vocab_size] array containing
+          ## frequency counts for each word for each class
           freq_0 = np.asarray(self.class_0.sum(axis=0))[0]
           freq_1 = np.asarray(self.class_1.sum(axis=0))[0]
+
+          ## add these frequency counts to class_0 and class_1 dicts
           for word_index in range(self.num_features):
             class_0[0][word_index] += freq_0[word_index]
             class_1[0][word_index] += freq_1[word_index]
+
+          ## convert frequency counts to probabilities
           for word in class_0[0]:
-            if word in class_1[0]:
             ## if feature in both classes, average out
+            if word in class_1[0]:
               total = class_0[0][word] + class_1[0][word]
               class_0[0][word] /= total
               class_1[0][word] /= total
             ## if feature value only in one class, P(feature value|class) = 1.0
             else:
               class_0[0][word] = 1.0
+
+          ## convert feature_values that only appear in other class 
           for word in class_1[0]:
-              ## if feature value only in one class, P(feature value|class) = 1.0
-              if word not in class_0[0]: # left-overs from previous loop
+              if word not in class_0[0]:
                 class_1[0][word] = 1.0 
         
-        #print(class_1[0].items())
-        ## dict of learned probabilities
-        ## {class 1: feature 0-7: values, class 2: feature 0-7: values}
+        ## create master dict of learned probabilities
         self.weights = {0 : class_0, 1 : class_1}
-        #print(self.weights[0][0].items())
 
     def predict(self, Xtest):
 
       ## argmax_k( sum_i( log P(feature_i|class_k) + log P(class_k)))
+      num_test_samples = Xtest.shape[0]
       predictions = []
-      for i in range(Xtest.shape[0]): # iterate through rows
+
+      for i in range(num_test_samples): # iterate through rows
         if i % 1000 == 0:
           print(f"SAMPLE: {i}\n" + "-"*100)
+
+        ## create array for storing summation values, to be used with argmax
         summation = np.zeros((self.num_classes))
-        for j in range(self.num_features): # iterate through each feature
-          ## grab the probability from the lookup table
+
+        ## iterate through each feature, grab the learned probability for that feature
+        ## very slow with IMDB because we are looping through every word in vocab for each sample
+        for j in range(self.num_features):
+          ## grab learned proability from master lookup dict
           if self.dataset == 'disease':
             probability_0 = self.weights[0][j][Xtest[i][j]]
             probability_1 = self.weights[1][j][Xtest[i][j]]
+
           elif self.dataset == 'IMDB':
+            ## skip words that contain 0 frequency counts
+            ## i.e, only words in that particular test sample
+            ## will have freq counts greater than 1
             probability_0 = None
             probability_1 = None
             sample = Xtest[i].toarray()[0]
-            if sample[j] > 0: # if this word appears in the test sample...
+            ## if this word appears in the test sample
+            ## grab that probability for each class
+            if sample[j] > 0: 
               probability_0 = self.weights[0][0][j]
               probability_1 = self.weights[1][0][j]
 
           ## accomodate unseen values and values seen only in one class
-          # use logs to avoid underflow
-          # for unseen values, here I just used a prob of 0.5
-          # for values seen only in one class, I used 0.01 for the other class
-          # there are probably better ways of doing this
+          ## use logs to avoid underflow
+          ## for unseen values, I use a prob of 0.5 for each class
+          ## for values seen only in one class, I use 0.01 for the opposite class
+          ## I am guessing there better ways of going about this
 
           ## for IMDB, if word not in test set, skip this iteration
           if probability_0 == probability_1 == None:
             continue
 
-          if probability_0 == probability_1 == 0.0: # unseen
+          ## unseen value, use prob of 0.5 for each class
+          if probability_0 == probability_1 == 0.0:
             summation[0] += log(0.5)
             summation[1] += log(0.5)
 
-          elif probability_0 == 0.0: # if only appears in class 1
+          ## only appears in class 1, use 0.01 for class 0
+          elif probability_0 == 0.0:
             summation[0] += log(0.01)
             summation[1] += log(probability_1)
 
-          elif probability_1 == 0.0: # if only appears in class 0
+          ## only appears in class 0, use 0.01 for class 1
+          elif probability_1 == 0.0:
             summation[0] += log(probability_0)
             summation[1] += log(0.01)
 
-          else: # otherwise use the probability from the lookup table
+          ## use probability from lookup table for both classes
+          else:
             summation[0] += log(probability_0)
             summation[1] += log(probability_1)
 
+        ## multiply by P(y) and take the argmax
         summation[0] += log(self.P_y[0])
         summation[1] += log(self.P_y[1])
         predictions.append(np.argmax(summation))
@@ -225,3 +258,5 @@ class NeuralNet(Classifier):
     
     def evaluate(self, inputs):
       pass
+
+#Accuracy for Naive Bayes: 85.22999999999999

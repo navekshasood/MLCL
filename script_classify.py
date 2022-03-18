@@ -43,57 +43,76 @@ def splitdataset(dataset, splitRatio):
                        
     return ((Xtrain,ytrain), (Xtest,ytest))
  
+##################
+#      IMDB      #
+##################
+
 def loadIMDB(filename):
+  ## load IMDB data using pandas, return pandas dataframe
   dataset = pd.read_csv(filename)
   return dataset
 
 def convert_labels(label):
+  ## converts 'positive' and 'negative' to 1 and 0
   if label == 'positive':
     return 1
-  else: # label = 'negative'
+  elif label == 'negative':
     return 0
+
+def separate_classes(X, y):
+  ## for naive bayes
+  ## separates samples into two classes (positive and negative)
+  ## this exists because the sparse BOW encoding from CountVectorizer() is difficult
+  ## to separate after the fact (converting to dense matrix takes up too much memory)
+  samples_class_0 = []
+  samples_class_1 = []
+  for row in range(X.shape[0]):
+    if y[row] == 0:
+      samples_class_0.append(X[row])
+    elif y[row] == 1:
+      samples_class_1.append(X[row])
+  return samples_class_0, samples_class_1
 
 def extract_features(X_train, X_test, X_0, X_1):
     """Implent this for Part 1: Question 2"""
     count = CountVectorizer(encoding = 'utf-8', strip_accents='unicode', ngram_range=(1,2), stop_words='english', max_features=5000)
+    ## transforms data into sparse matrix
     bow_train = count.fit_transform(X_train)
     bow_test = count.transform(X_test)
+    ## for naive bayes
+    ## transforms the split dataset from separate_classes()
     bow_train_0 = count.transform(X_0)
     bow_train_1 = count.transform(X_1)
+
     return bow_train, bow_test, bow_train_0, bow_train_1
-
-def separate_classes(X, y):
-  ## for naive bayes
-  class_0 = []
-  class_1 = []
-  for row in range(X.shape[0]):
-    if y[row] == 0:
-      class_0.append(X[row])
-    elif y[row] == 1:
-      class_1.append(X[row])
-  return class_0, class_1
-
 
 def splitIMDB(df):
 
+  ## convert labels
   df['sentiment'] = df['sentiment'].apply(convert_labels)
   
+  ## separate into review / sentiment
   X = df.review
   y = df.sentiment
 
+  ## convert from pandas to numpy
   X_mat = X.to_numpy()
   y_mat = y.to_numpy()
 
+  ## split into train / test
   X_train, X_test, y_train, y_test = train_test_split(X_mat, y_mat, test_size=.2)
 
-  #print(X_train[0])
+  ## for naive bayes
+  ## separate train data into classes
   X_train_0, X_train_1 = separate_classes(X_train, y_train)
+
+  ## extract features, convert to BOW encoding
   X_train_f, X_test_f, X_train_0_f, X_train_1_f = extract_features(X_train, X_test, X_train_0, X_train_1)
 
-  #print('BOW_train:', X_train_f.shape)
-  #print('BOW_test:', X_test_f.shape)
-
+  ## return train / test data as well as BOW encoded, class separated, train data
   return (X_train_f,y_train), (X_test_f, y_test), X_train_0_f, X_train_1_f
+
+####################
 
 def getaccuracy(ytest, predictions):
     correct = 0
@@ -104,7 +123,7 @@ def getaccuracy(ytest, predictions):
  
 if __name__ == '__main__':
 
-    ## uncomment the desired data file
+    ## uncomment desired data file
     filename = 'disease.csv'
     #filename = 'IMDB_Dataset.csv'
 
@@ -121,14 +140,11 @@ if __name__ == '__main__':
     elif filename == 'IMDB':
       dataset = loadIMDB(filename)
       trainset, testset, class_0, class_1 = splitIMDB(dataset)
-      print(class_0.get_shape())
       print(f'Split {len(dataset)} rows into train={trainset[0].shape[0]} and test={testset[0].shape[0]} rows')
       classalgs = {'Random': algs.Classifier(),
                   'Naive Bayes': algs.NaiveBayes('IMDB', class_0, class_1),
                   'Logistic Regression': algs.LogitReg()
                   }
-
-    #print('Split {0} rows into train={1} and test={2} rows').format(len(dataset), trainset[0].shape[0], testset[0].shape[0])
         
     for learnername, learner in classalgs.items():
         print('Running learner = ' + learnername)
