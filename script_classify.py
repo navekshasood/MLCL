@@ -6,6 +6,8 @@ import algorithms as algs
 import pandas as pd
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.model_selection import train_test_split
+import warnings
+warnings.filterwarnings('ignore')
  
 def loadcsv(filename):
     #lines = csv.reader(open(filename, "rb"))
@@ -19,7 +21,7 @@ def loadcsv(filename):
  
 def splitdataset(dataset, splitRatio):
     copy = list(dataset)
-    trainsize = int(len(dataset) * splitratio)
+    trainsize = int(len(dataset) * splitRatio)
     numinputs = len(dataset[0])-1
     Xtrain = np.zeros((trainsize,numinputs))
     ytrain = np.zeros(trainsize)
@@ -125,25 +127,31 @@ if __name__ == '__main__':
 
     ## uncomment desired data file
     filename = 'disease.csv'
-    #filename = 'IMDB_Dataset.csv'
+    # filename = 'IMDB_Dataset.csv'
 
     if filename == 'disease.csv':
       splitratio = 0.67
       dataset = loadcsv(filename)
       trainset, testset = splitdataset(dataset, splitratio)
-      print(f'Split {len(dataset)} rows into train={trainset[0].shape[0]} and test={testset[0].shape[0]} rows')
-      classalgs = {'Random': algs.Classifier(),
+      print(f'Split {len(dataset)} rows into train={trainset[0].shape[0]} and test={testset[0].shape[0]} rows.')
+      params_NN = {'ni':trainset[0].shape[1], 'nh': 100, 'no': 2}
+      classalgs = {
+                  'Random': algs.Classifier(),
                   'Naive Bayes': algs.NaiveBayes('disease'),
-                  'Logistic Regression': algs.LogitReg(dataset='disease',learning_rate =.01, num_iterations=100, run_stochastic=False)
+                  'Logistic Regression': algs.LogitReg(dataset='disease',learning_rate =.01, num_iterations = 100, run_stochastic=False),
+                  'Neural Network': algs.NeuralNet(dataset='disease', params = params_NN, learning_rate = .001, num_iterations = 100)
                   }
 
     elif filename == 'IMDB_Dataset.csv':
       dataset = loadIMDB(filename)
       trainset, testset, class_0, class_1 = splitIMDB(dataset)
       print(f'Split {len(dataset)} rows into train={trainset[0].shape[0]} and test={testset[0].shape[0]} rows')
-      classalgs = {'Random': algs.Classifier(),
-                  'Naive Bayes': algs.NaiveBayes('IMDB', class_0, class_1),
-                  'Logistic Regression': algs.LogitReg(dataset='IMDB',learning_rate=.01, num_iterations=10, run_stochastic=True)
+      params_NN = {'ni':trainset[0].shape[1], 'nh': 10, 'no': 2}
+      classalgs = {
+                  # 'Random': algs.Classifier(),
+                  # 'Naive Bayes': algs.NaiveBayes('IMDB', class_0, class_1),
+                  # 'Logistic Regression': algs.LogitReg(dataset='IMDB', learning_rate=.01, num_iterations=10, run_stochastic=True),
+                  'Neural Network': algs.NeuralNet(dataset='IMDB',  params = params_NN, learning_rate = .01, num_iterations = 100)
                   }
         
     for learnername, learner in classalgs.items():

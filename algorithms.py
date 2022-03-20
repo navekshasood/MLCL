@@ -2,13 +2,13 @@ import numpy as np
 import utilities as utils
 from collections import Counter
 from math import log10 as log
+from sklearn.model_selection import train_test_split
 
 # http://aimotion.blogspot.com/2011/11/machine-learning-with-python-logistic.html
 class Classifier:
     """
     Generic classifier interface; returns random classification
     """
-    
     def __init__( self ):
         """ Params can contain any useful parameters for the algorithm """
         
@@ -132,8 +132,8 @@ class NaiveBayes(Classifier):
 
       for i in range(num_test_samples): # iterate through rows
 
-        if i % 1000 == 0:
-          print("-"*100 + f"\nSAMPLE: {i}\n" + "-"*100)
+        # if i % 1000 == 0:
+        #   print("-"*100 + f"\nSAMPLE: {i}\n" + "-"*100)
 
         ## create array for storing summation values, to be used with argmax
         summation = np.zeros((self.num_classes))
@@ -197,9 +197,7 @@ class NaiveBayes(Classifier):
 
       return predictions
     
-
 class LogitReg(Classifier):
-
     def __init__( self, dataset, learning_rate, num_iterations, run_stochastic):
 
         self.weights = None
@@ -226,10 +224,10 @@ class LogitReg(Classifier):
           #num_samples = 1 #testing
           for i in range(self.num_iters):
             #if i % 10 == 0:
-            print("-"*100 + f"\nITERATION: {i}\n" + "-"*100)
+            # print("-"*100 + f"\nITERATION: {i}\n" + "-"*100)
             for j in range(num_samples):
-              if j % 5000 == 0:
-                print("-"*100 + f"\nSAMPLE: {j}\n" + "-"*100)
+              # if j % 5000 == 0:
+              #   print("-"*100 + f"\nSAMPLE: {j}\n" + "-"*100)
               cost = self.logit_cost(self.weights, Xtrain, ytrain) # currently don't do anything with this
               self.weights = utils.gradient_descent(self.learning_rate, self.weights, Xtrain[j].toarray(), ytrain[j])
 
@@ -262,10 +260,30 @@ class LogitReg(Classifier):
 
     	# When you write your own minimizers, you will also return a gradient here
         return J[0]#,grad
-        
+
+class Dense():
+  def __init__(self, input_units, output_units, learning_rate):
+    self.learning_rate = learning_rate
+    self.weights = np.random.randn(input_units, output_units)*0.01 #randomly initialize weights
+    self.biases = np.zeros(output_units)
+      
+  def forward(self,input):
+    a = np.dot(input, self.weights)
+    return a + self.biases
+    
+  def backward(self,input,grad_output):
+    grad_input = np.dot(grad_output,np.transpose(self.weights))
+    grad_weights = np.transpose(np.dot(np.transpose(np.array([grad_output])),np.array([input])))
+    grad_biases = np.sum(grad_output, axis = 0)
+
+    self.weights = self.weights - self.learning_rate * grad_weights
+    self.biases = self.biases - self.learning_rate * grad_biases
+    # self.weights = utils.gradient_descent(self.learning_rate, self.weights, input, grad_output)
+    return grad_input
+
 
 class NeuralNet(Classifier):
-    def __init__(self, params=None):
+    def __init__(self, dataset, params, learning_rate, num_iterations):
         # Number of input, hidden, and output nodes
         # Hard-coding sigmoid transfer for this test
         self.ni = params['ni']
@@ -273,18 +291,69 @@ class NeuralNet(Classifier):
         self.no = params['no']
         self.transfer = utils.sigmoid
         self.dtransfer = utils.dsigmoid
+        self.learning_rate = learning_rate
+        self.num_iterations = num_iterations
 
         # Create random {0,1} weights to define features
-        self.wi = np.random.randint(2, size=(self.nh, self.ni))
-        self.wo = np.random.randint(2, size=(self.no, self.nh))
+        self.wi = np.random.randint(2, size=(self.ni, self.nh))
+        self.wo = np.random.randint(2, size=(self.nh, self.no))
 
-    def learn(self, Xtrain, ytrain):
-        """ Your implementation for learning the weights """
-        pass
+        self.network = []
+        self.network.append(Dense(self.ni, self.nh, self.learning_rate))
+        self.network.append(Dense(self.nh, self.no, self.learning_rate))
+        # print ("Network shape: ", self.network[0].weights.shape, self.network[1].weights.shape)
+
+    def helper(self, Xtrain):
+      activations = []
+      for i in range(len(self.network)):
+          # print (Xtrain.shape)
+          activations.append(self.transfer(self.network[i].forward(Xtrain)))
+          Xtrain = self.network[i].forward(Xtrain)
+      return activations
+
+    def evaluate(self, Xtrain, ytrain):
+      # Forward propagations
+      activations = self.helper(Xtrain)
+
+      # Backpropagation
+      # last_layer = activations[-1]
+      # loss = utils.cross_entropy(last_layer, ytrain)
+      # loss_grad = self.dtransfer(last_layer)
+      
+      # for i in range(1, len(self.network)):
+      #     loss_grad = self.network[len(self.network) - i].backward(activations[len(self.network) - i - 1], loss_grad)
+
+      # # Backpropagation
+      # loss = utils.grad_cross_entropy(activations[-1], ytrain)
+      # for i in range(len(self.network)-1,1,-1):
+      #     loss_grad = self.dtransfer(activations[i+1])
+      #     out = loss*loss_grad
+      #     loss = out.dot(self.network.weights[i])
+      #     self.network.weights[i] -= activations.T.dot(out)*self.learning_rate
+      #     self.network.biases[i] -= np.sum(out, axis = 0, keepdims=True*self.learning_rate)
+
+    def learn(self, X, y):
+      train_log = []
+      val_log = []
+      for epoch in range(250):
+          Xtrain, Xval, ytrain, yval = train_test_split(X, y, test_size=0.33)
+          # print ("Shapes: ", Xtrain.shape, ytrain.shape, Xval.shape, yval.shape)
+          for x,y_class in zip(Xtrain,ytrain):
+              y_vec = np.zeros((2,))
+              y_vec[int(y_class)] = 1
+              # print (y_vec)
+              self.evaluate(x,y_vec)
+          
+          train_log.append(np.mean(self.predict(Xtrain)==ytrain))
+          val_log.append(np.mean(self.predict(Xval)==yval))
+          
+          print("Epoch",epoch)
+          print("Train accuracy:",train_log[-1])
+          print("Val accuracy:",val_log[-1])
             
-    def predict(self,Xtest):
-      pass
+    def predict(self,Xtrain):
+      logits = self.helper(Xtrain)[-1]
+      return logits.argmax(axis=-1)
     
-    def evaluate(self, inputs):
-      pass
+    
 
