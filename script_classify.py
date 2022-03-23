@@ -1,11 +1,13 @@
 import csv
 import random
 import math
+from re import A
 import numpy as np
 import algorithms as algs
 import pandas as pd
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.model_selection import train_test_split
+import matplotlib.pyplot as plt
 import warnings
 warnings.filterwarnings('ignore')
  
@@ -122,47 +124,75 @@ def getaccuracy(ytest, predictions):
         if ytest[i] == predictions[i]:
             correct += 1
     return (correct/float(len(ytest))) * 100.0
- 
+
+def plot(accuracy, hidden, title):
+  plt.figure()
+  plt.plot(hidden, accuracy)
+  plt.legend()
+  plt.xlabel("Hidden Units")
+  plt.ylabel("Accuracy")
+  plt.savefig(f'experiment_{title}.png')
+
 if __name__ == '__main__':
 
     ## uncomment desired data file
     filename = 'disease.csv'
-    # filename = 'IMDB_Dataset.csv'
+    #filename = 'IMDB_Dataset.csv'
 
-    if filename == 'disease.csv':
-      splitratio = 0.67
-      dataset = loadcsv(filename)
-      trainset, testset = splitdataset(dataset, splitratio)
-      print(f'Split {len(dataset)} rows into train={trainset[0].shape[0]} and test={testset[0].shape[0]} rows.')
-      params_NN = {'ni':trainset[0].shape[1], 'nh': 100, 'no': 2}
-      classalgs = {
-                  'Random': algs.Classifier(),
-                  'Naive Bayes': algs.NaiveBayes('disease'),
-                  'Logistic Regression': algs.LogitReg(dataset='disease',learning_rate =.01, num_iterations = 100, run_stochastic=False),
-                  'Neural Network': algs.NeuralNet(dataset='disease', params = params_NN, learning_rate = .001, num_iterations = 100)
-                  }
+    experiment_iterations = 10
+    experiment_title = 'disease'
+    #experiment_title = 'IMDB'
+    experiment_hidden_units = [i for i in range(100, 200, 10)]
+    #experiment_hidden_units = [i for i in range(10, 20)]
 
-    elif filename == 'IMDB_Dataset.csv':
-      dataset = loadIMDB(filename)
-      trainset, testset, class_0, class_1 = splitIMDB(dataset)
-      print(f'Split {len(dataset)} rows into train={trainset[0].shape[0]} and test={testset[0].shape[0]} rows')
-      params_NN = {'ni':trainset[0].shape[1], 'nh': 10, 'no': 2}
-      classalgs = {
-                  # 'Random': algs.Classifier(),
-                  # 'Naive Bayes': algs.NaiveBayes('IMDB', class_0, class_1),
-                  # 'Logistic Regression': algs.LogitReg(dataset='IMDB', learning_rate=.01, num_iterations=10, run_stochastic=True),
-                  'Neural Network': algs.NeuralNet(dataset='IMDB',  params = params_NN, learning_rate = .01, num_iterations = 100)
-                  }
-        
-    for learnername, learner in classalgs.items():
-        print('Running learner = ' + learnername)
-        # Train model
-        learner.learn(trainset[0], trainset[1])
-        # test model
-        predictions = learner.predict(testset[0])
-        accuracy = getaccuracy(testset[1], predictions)
-        print('Accuracy for ' + learnername + ': ' + str(accuracy))
- 
+    experiment_accuracy = []
+    for i in range(experiment_iterations):
+
+      if filename == 'disease.csv':
+        splitratio = 0.67
+        dataset = loadcsv(filename)
+        trainset, testset = splitdataset(dataset, splitratio)
+        print(f'Split {len(dataset)} rows into train={trainset[0].shape[0]} and test={testset[0].shape[0]} rows.')
+        #params_NN = {'ni':trainset[0].shape[1], 'nh': 100, 'no': 2}
+        params_NN = {'ni':trainset[0].shape[1], 'nh': experiment_hidden_units[i], 'no': 2}
+        classalgs = {
+                    #'Random': algs.Classifier(),
+                    #'Naive Bayes': algs.NaiveBayes('disease'),
+                    #'Logistic Regression': algs.LogitReg(dataset='disease',learning_rate =.01, num_iterations = 100, run_stochastic=False),
+                    'Neural Network': algs.NeuralNet(dataset='disease', params = params_NN, learning_rate = .001, num_iterations = 100)
+                    }
+
+      elif filename == 'IMDB_Dataset.csv':
+        dataset = loadIMDB(filename)
+        trainset, testset, class_0, class_1 = splitIMDB(dataset)
+        print(f'Split {len(dataset)} rows into train={trainset[0].shape[0]} and test={testset[0].shape[0]} rows')
+        params_NN = {'ni':trainset[0].shape[1], 'nh': 10, 'no': 2}
+        classalgs = {
+                    # 'Random': algs.Classifier(),
+                    # 'Naive Bayes': algs.NaiveBayes('IMDB', class_0, class_1),
+                    #'Logistic Regression': algs.LogitReg(dataset='IMDB', learning_rate=.001, num_iterations=10, run_stochastic=True),
+                    'Neural Network': algs.NeuralNet(dataset='IMDB',  params = params_NN, learning_rate = .01, num_iterations = 100)
+                    }
+          
+      for learnername, learner in classalgs.items():
+          print('Running learner = ' + learnername)
+          # Train model
+          learner.learn(trainset[0], trainset[1])
+          # test model
+          predictions = learner.predict(testset[0])
+          accuracy = getaccuracy(testset[1], predictions)
+          print('Accuracy for ' + learnername + ': ' + str(accuracy))
+      experiment_accuracy.append(accuracy)
+
+    print(len(experiment_hidden_units), len(experiment_accuracy))
+    plot(accuracy=experiment_accuracy, hidden=experiment_hidden_units, title=experiment_title)
+
+## disease dataset results:
+#Accuracy for Naive Bayes: 70.47244094488188
+#Accuracy for Logistic Regression: 68.89763779527559
+#Accuracy for Neural Network: 66.92913385826772
+
 ## IMDB results:
 #Accuracy for Naive Bayes: 85.22999999999999
-#Accuracy for Logistic Regression:
+#Accuracy for Logistic Regression: 65.39
+#Accuracy for Neural Network: 49.17
