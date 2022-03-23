@@ -293,6 +293,7 @@ class NeuralNet(Classifier):
         self.dtransfer = utils.dsigmoid
         self.learning_rate = learning_rate
         self.num_iterations = num_iterations
+        self.dataset = dataset
 
         # Create random {0,1} weights to define features
         self.wi = np.random.randint(2, size=(self.ni, self.nh))
@@ -307,6 +308,9 @@ class NeuralNet(Classifier):
       activations = []
       for i in range(len(self.network)):
           # print (Xtrain.shape)
+          if self.dataset == 'IMDB':
+            if i == 0:
+              Xtrain = Xtrain.toarray()
           activations.append(self.transfer(self.network[i].forward(Xtrain)))
           Xtrain = self.network[i].forward(Xtrain)
       return activations
