@@ -7,6 +7,7 @@ import pandas as pd
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.model_selection import train_test_split
 import warnings
+import matplotlib.pyplot as plt
 warnings.filterwarnings('ignore')
  
 def loadcsv(filename):
@@ -76,8 +77,8 @@ def separate_classes(X, y):
   return samples_class_0, samples_class_1
 
 def extract_features(X_train, X_test, X_0, X_1):
-    """Implent this for Part 1: Question 2"""
-    count = CountVectorizer(encoding = 'utf-8', strip_accents='unicode', ngram_range=(1,2), stop_words='english', max_features=5000)
+    """Implement this for Part 1: Question 2"""
+    count = CountVectorizer(encoding = 'utf-8', strip_accents='unicode', ngram_range=(1,2), stop_words='english', max_features=300)
     ## transforms data into sparse matrix
     bow_train = count.fit_transform(X_train)
     bow_test = count.transform(X_test)
@@ -85,33 +86,24 @@ def extract_features(X_train, X_test, X_0, X_1):
     ## transforms the split dataset from separate_classes()
     bow_train_0 = count.transform(X_0)
     bow_train_1 = count.transform(X_1)
-
     return bow_train, bow_test, bow_train_0, bow_train_1
 
 def splitIMDB(df):
-
   ## convert labels
   df['sentiment'] = df['sentiment'].apply(convert_labels)
-  
   ## separate into review / sentiment
   X = df.review
   y = df.sentiment
-
   ## convert from pandas to numpy
   X_mat = X.to_numpy()
   y_mat = y.to_numpy()
-
   ## split into train / test
   X_train, X_test, y_train, y_test = train_test_split(X_mat, y_mat, test_size=.2)
-
   ## for naive bayes
   ## separate train data into classes
   X_train_0, X_train_1 = separate_classes(X_train, y_train)
-
   ## extract features, convert to BOW encoding
   X_train_f, X_test_f, X_train_0_f, X_train_1_f = extract_features(X_train, X_test, X_train_0, X_train_1)
-
-  ## return train / test data as well as BOW encoded, class separated, train data
   return (X_train_f,y_train), (X_test_f, y_test), X_train_0_f, X_train_1_f
 
 ####################
@@ -130,39 +122,57 @@ if __name__ == '__main__':
     # filename = 'IMDB_Dataset.csv'
 
     if filename == 'disease.csv':
-      splitratio = 0.67
+      splitratio = 0.8
       dataset = loadcsv(filename)
       trainset, testset = splitdataset(dataset, splitratio)
       print(f'Split {len(dataset)} rows into train={trainset[0].shape[0]} and test={testset[0].shape[0]} rows.')
-      params_NN = {'ni':trainset[0].shape[1], 'nh': 100, 'no': 2}
-      classalgs = {
-                  'Random': algs.Classifier(),
-                  'Naive Bayes': algs.NaiveBayes('disease'),
-                  'Logistic Regression': algs.LogitReg(dataset='disease',learning_rate =.01, num_iterations = 100, run_stochastic=False),
-                  'Neural Network': algs.NeuralNet(dataset='disease', params = params_NN, learning_rate = .001, num_iterations = 100)
-                  }
+      hn_list = [64] #[8,16,32,64,128,256]
+      acc_list = []
+      
+      for hidden_neurons in hn_list:
+        params_NN = {'ni':trainset[0].shape[1], 'nh': hidden_neurons, 'no': 2}
+        classalgs = {
+                    # 'Random': algs.Classifier(),
+                    # 'Naive Bayes': algs.NaiveBayes('disease'),
+                    # 'Logistic Regression': algs.LogitReg(dataset='disease',learning_rate =.01, num_iterations = 100, run_stochastic=False),
+                    'Neural Network': algs.NeuralNet(dataset='disease', params = params_NN, learning_rate = 0.01, num_iterations = 50, batch_size = 8, lambda_reg = 0.001)
+                    }
+        for learnername, learner in classalgs.items():
+          print('Running learner = ' + learnername)
+          # Train model
+          learner.learn(trainset[0], trainset[1])
+          predictions = learner.predict(testset[0])
+          accuracy = getaccuracy(testset[1], predictions)
+          print('Accuracy for ' + learnername + ': ' + str(accuracy))
+          acc_list.append(accuracy)
+      plt.plot(hn_list, acc_list)
+      plt.xlabel("Number of hidden neurons")
+      plt.ylabel("Accuracy")
+      plt.savefig("Disease.png")
 
     elif filename == 'IMDB_Dataset.csv':
       dataset = loadIMDB(filename)
       trainset, testset, class_0, class_1 = splitIMDB(dataset)
       print(f'Split {len(dataset)} rows into train={trainset[0].shape[0]} and test={testset[0].shape[0]} rows')
-      params_NN = {'ni':trainset[0].shape[1], 'nh': 10, 'no': 2}
-      classalgs = {
-                  # 'Random': algs.Classifier(),
-                  # 'Naive Bayes': algs.NaiveBayes('IMDB', class_0, class_1),
-                  # 'Logistic Regression': algs.LogitReg(dataset='IMDB', learning_rate=.01, num_iterations=10, run_stochastic=True),
-                  'Neural Network': algs.NeuralNet(dataset='IMDB',  params = params_NN, learning_rate = .01, num_iterations = 100)
-                  }
-        
-    for learnername, learner in classalgs.items():
-        print('Running learner = ' + learnername)
-        # Train model
-        learner.learn(trainset[0], trainset[1])
-        # test model
-        predictions = learner.predict(testset[0])
-        accuracy = getaccuracy(testset[1], predictions)
-        print('Accuracy for ' + learnername + ': ' + str(accuracy))
- 
-## IMDB results:
-#Accuracy for Naive Bayes: 85.22999999999999
-#Accuracy for Logistic Regression:
+      hn_list = [256]
+      acc_list = []
+      for hidden_neurons in hn_list:
+        params_NN = {'ni':trainset[0].shape[1], 'nh': hidden_neurons, 'no': 2}
+        classalgs = {
+                    # 'Random': algs.Classifier(),
+                    # 'Naive Bayes': algs.NaiveBayes('IMDB', class_0, class_1),
+                    # 'Logistic Regression': algs.LogitReg(dataset='IMDB', learning_rate=.01, num_iterations=10, run_stochastic=True),
+                    'Neural Network': algs.NeuralNet(dataset='IMDB',  params = params_NN, learning_rate = 0.01, num_iterations = 150, batch_size = 8, lambda_reg = 0.001)
+                    }
+        for learnername, learner in classalgs.items():
+          print('Running learner = ' + learnername)
+          # Train model
+          learner.learn(trainset[0], trainset[1])
+          predictions = learner.predict(testset[0])
+          accuracy = getaccuracy(testset[1], predictions)
+          print('Accuracy for ' + learnername + ': ' + str(accuracy))
+          acc_list.append(accuracy)
+      plt.plot(hn_list, acc_list)
+      plt.xlabel("Number of hidden neurons")
+      plt.ylabel("Accuracy")
+      plt.savefig("Disease.png")

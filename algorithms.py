@@ -3,6 +3,8 @@ import utilities as utils
 from collections import Counter
 from math import log10 as log
 from sklearn.model_selection import train_test_split
+from tqdm import trange 
+import sklearn.preprocessing as preprocessing
 
 # http://aimotion.blogspot.com/2011/11/machine-learning-with-python-logistic.html
 class Classifier:
@@ -262,30 +264,32 @@ class LogitReg(Classifier):
         return J[0]#,grad
 
 class Dense():
-  def __init__(self, input_units, output_units, learning_rate):
+  def __init__(self, weights, biases, learning_rate):
     self.learning_rate = learning_rate
-    self.weights = np.random.randn(input_units, output_units)*0.01 #randomly initialize weights
-    self.biases = np.zeros(output_units)
+    self.weights = weights
+    self.biases = biases
       
   def forward(self,input):
     a = np.dot(input, self.weights)
     return a + self.biases
     
-  def backward(self,input,grad_output):
+  def backward(self,input,grad_output,itr,total_iterations):
     grad_input = np.dot(grad_output,np.transpose(self.weights))
-    grad_weights = np.transpose(np.dot(np.transpose(np.array([grad_output])),np.array([input])))
-    grad_biases = np.sum(grad_output, axis = 0)
+    grad_weights = np.transpose(np.dot(np.transpose(grad_output),input))
+    grad_biases = np.sum(grad_output, axis = 0) 
 
-    self.weights = self.weights - self.learning_rate * grad_weights
-    self.biases = self.biases - self.learning_rate * grad_biases
-    # self.weights = utils.gradient_descent(self.learning_rate, self.weights, input, grad_output)
+    annealling_factor = (1/(1+itr/total_iterations))
+    annealling_factor = 1 # comment this to use learning rate annealing
+    self.weights = self.weights + (self.learning_rate * annealling_factor * grad_weights * 1/input.shape[0])
+    self.biases = self.biases + (self.learning_rate * grad_biases * 1/input.shape[0])
     return grad_input
 
 
 class NeuralNet(Classifier):
-    def __init__(self, dataset, params, learning_rate, num_iterations):
+    def __init__(self, dataset, params, learning_rate, num_iterations, batch_size, lambda_reg):
         # Number of input, hidden, and output nodes
         # Hard-coding sigmoid transfer for this test
+        self.dataset = dataset
         self.ni = params['ni']
         self.nh = params['nh']
         self.no = params['no']
@@ -293,66 +297,80 @@ class NeuralNet(Classifier):
         self.dtransfer = utils.dsigmoid
         self.learning_rate = learning_rate
         self.num_iterations = num_iterations
+        self.batch_size = batch_size
+        self.lambda_reg = lambda_reg
 
         # Create random {0,1} weights to define features
-        self.wi = np.random.randint(2, size=(self.ni, self.nh))
-        self.wo = np.random.randint(2, size=(self.nh, self.no))
+        self.wi = np.random.random((self.ni, self.nh))
+        self.wo = np.random.random((self.nh, self.no))
+        self.bi = np.zeros(self.nh)
+        self.bo = np.zeros(self.no)
 
         self.network = []
-        self.network.append(Dense(self.ni, self.nh, self.learning_rate))
-        self.network.append(Dense(self.nh, self.no, self.learning_rate))
-        # print ("Network shape: ", self.network[0].weights.shape, self.network[1].weights.shape)
+        self.network.append(Dense(self.wi, self.bi, self.learning_rate))
+        self.network.append(Dense(self.wo, self.bo, self.learning_rate))
 
     def helper(self, Xtrain):
       activations = []
       for i in range(len(self.network)):
-          # print (Xtrain.shape)
           activations.append(self.transfer(self.network[i].forward(Xtrain)))
-          Xtrain = self.network[i].forward(Xtrain)
+          Xtrain = self.transfer(self.network[i].forward(Xtrain))
       return activations
 
-    def evaluate(self, Xtrain, ytrain):
+    def evaluate(self, Xtrain, ytrain, itr):
       # Forward propagations
       activations = self.helper(Xtrain)
 
       # Backpropagation
-      # last_layer = activations[-1]
-      # loss = utils.cross_entropy(last_layer, ytrain)
-      # loss_grad = self.dtransfer(last_layer)
-      
-      # for i in range(1, len(self.network)):
-      #     loss_grad = self.network[len(self.network) - i].backward(activations[len(self.network) - i - 1], loss_grad)
+      last_layer = activations[-1]
+      reg_term = 0.5*self.lambda_reg*np.sum(np.square(self.wo))
+      reg_term = 0 #comment this to use regularization
+      loss = utils.cross_entropy(last_layer, ytrain) + reg_term 
+      loss_grad = self.dtransfer(last_layer)
+      for i in range(1, len(self.network)):
+          loss_grad = self.network[len(self.network) - i].backward(activations[len(self.network) - i - 1], loss*loss_grad, itr, self.num_iterations)
+      return loss
 
-      # # Backpropagation
-      # loss = utils.grad_cross_entropy(activations[-1], ytrain)
-      # for i in range(len(self.network)-1,1,-1):
-      #     loss_grad = self.dtransfer(activations[i+1])
-      #     out = loss*loss_grad
-      #     loss = out.dot(self.network.weights[i])
-      #     self.network.weights[i] -= activations.T.dot(out)*self.learning_rate
-      #     self.network.biases[i] -= np.sum(out, axis = 0, keepdims=True*self.learning_rate)
+    def make_batches(self, X, y):
+      batches = []
+      indices = np.random.permutation(len(X))
+      for start_idx in range(0, len(X) - self.batch_size + 1, self.batch_size):
+        excerpt = indices[start_idx:start_idx + self.batch_size]
+        batches.append((X[excerpt], y[excerpt]))
+      return batches
 
-    def learn(self, X, y):
+    def learn(self, X, y_):
+      if self.dataset == "IMDB":
+        X = X.toarray()
+
+      # One hot encoding
+      shape = (y_.size, int(y_.max()+1))
+      y = np.zeros(shape)
+      rows = np.arange(y_.size)
+      y[rows, y_.astype(int)] = 1
+
       train_log = []
       val_log = []
-      for epoch in range(250):
-          Xtrain, Xval, ytrain, yval = train_test_split(X, y, test_size=0.33)
-          # print ("Shapes: ", Xtrain.shape, ytrain.shape, Xval.shape, yval.shape)
-          for x,y_class in zip(Xtrain,ytrain):
-              y_vec = np.zeros((2,))
-              y_vec[int(y_class)] = 1
-              # print (y_vec)
-              self.evaluate(x,y_vec)
+      for epoch in range(self.num_iterations):
+          Xtrain, Xval, ytrain, yval = train_test_split(X, y, test_size=0.2)
+          tot_loss = 0
+          for x,y_class in self.make_batches(Xtrain,ytrain):
+              loss = self.evaluate(x,y_class,epoch)
+              tot_loss += loss
           
-          train_log.append(np.mean(self.predict(Xtrain)==ytrain))
+          train_log.append(np.mean(self.predict(Xtrain)==ytrain.argmax(axis = 1)))
           val_log.append(np.mean(self.predict(Xval)==yval))
           
-          print("Epoch",epoch)
-          print("Train accuracy:",train_log[-1])
-          print("Val accuracy:",val_log[-1])
+          # print("Epoch",epoch," Train loss:",tot_loss)
+          # print("Train accuracy:",train_log[-1])
+          # print("Val accuracy:",val_log[-1])
             
     def predict(self,Xtrain):
-      logits = self.helper(Xtrain)[-1]
+      try:
+        Xtrain = Xtrain.toarray()
+        logits = self.helper(Xtrain)[-1]
+      except:
+        logits = self.helper(Xtrain)[-1]
       return logits.argmax(axis=-1)
     
     

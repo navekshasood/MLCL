@@ -18,7 +18,9 @@ def sigmoid(X):
     return d
 
 def dsigmoid(X):
-    return X*(1-X)
+    den = 1.0 + np.exp(-1.0 * X)
+    d = 1.0 / den
+    return d*(1-d)
 
 def threshold_probs(probs):
     """ Converts probabilities to hard classification """
@@ -38,9 +40,8 @@ def gradient_descent(lr, theta, X, y):
     return theta
 
 def cross_entropy(y_pred, y):
-  loss=-np.sum(y*np.log(y_pred))
-#   print (y_pred, np.log(y_pred))
-  return loss/float(y_pred.shape[0])
+  loss=-np.sum(y*np.log(y_pred + 1e-8))
+  return loss
 
 def grad_cross_entropy(y_pred, y):
     return y_pred - y
