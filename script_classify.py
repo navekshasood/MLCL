@@ -1,11 +1,13 @@
 import csv
 import random
 import math
+from re import A
 import numpy as np
 import algorithms as algs
 import pandas as pd
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.model_selection import train_test_split
+import matplotlib.pyplot as plt
 import warnings
 import matplotlib.pyplot as plt
 warnings.filterwarnings('ignore')
@@ -114,7 +116,15 @@ def getaccuracy(ytest, predictions):
         if ytest[i] == predictions[i]:
             correct += 1
     return (correct/float(len(ytest))) * 100.0
- 
+
+def plot(accuracy, hidden, title):
+  plt.figure()
+  plt.plot(hidden, accuracy)
+  plt.legend()
+  plt.xlabel("Hidden Units")
+  plt.ylabel("Accuracy")
+  plt.savefig(f'experiment_{title}.png')
+
 if __name__ == '__main__':
 
     ## uncomment desired data file
