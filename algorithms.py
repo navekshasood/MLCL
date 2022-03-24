@@ -3,8 +3,7 @@ import utilities as utils
 from collections import Counter
 from math import log10 as log
 from sklearn.model_selection import train_test_split
-from tqdm import trange 
-import sklearn.preprocessing as preprocessing
+import random
 
 # http://aimotion.blogspot.com/2011/11/machine-learning-with-python-logistic.html
 class Classifier:
@@ -263,73 +262,70 @@ class LogitReg(Classifier):
     	# When you write your own minimizers, you will also return a gradient here
         return J[0]#,grad
 
-class Dense():
-  def __init__(self, weights, biases, learning_rate):
-    self.learning_rate = learning_rate
-    self.weights = weights
-    self.biases = biases
-      
-  def forward(self,input):
-    a = np.dot(input, self.weights)
-    return a + self.biases
-    
-  def backward(self,input,grad_output,itr,total_iterations):
-    grad_input = np.dot(grad_output,np.transpose(self.weights))
-    grad_weights = np.transpose(np.dot(np.transpose(grad_output),input))
-    grad_biases = np.sum(grad_output, axis = 0) 
-
-    annealling_factor = (1/(1+itr/total_iterations))
-    annealling_factor = 1 # comment this to use learning rate annealing
-    self.weights = self.weights + (self.learning_rate * annealling_factor * grad_weights * 1/input.shape[0])
-    self.biases = self.biases + (self.learning_rate * grad_biases * 1/input.shape[0])
-    return grad_input
-
-
 class NeuralNet(Classifier):
-    def __init__(self, dataset, params, learning_rate, num_iterations, batch_size, lambda_reg):
-        # Number of input, hidden, and output nodes
-        # Hard-coding sigmoid transfer for this test
-        self.dataset = dataset
-        self.ni = params['ni']
-        self.nh = params['nh']
-        self.no = params['no']
-        self.transfer = utils.sigmoid
-        self.dtransfer = utils.dsigmoid
-        self.learning_rate = learning_rate
-        self.num_iterations = num_iterations
-        self.batch_size = batch_size
-        self.lambda_reg = lambda_reg
+    def __init__(self, dataset, params, learning_rate, num_iterations, batch_size, lambda_reg, lr_annealing, regularization):
+      # Number of input, hidden, and output nodes
+      # Hard-coding sigmoid transfer for this test
+      self.dataset = dataset
+      self.ni = params['ni']
+      self.nh = params['nh']
+      self.no = params['no']
+      self.transfer = utils.sigmoid
+      self.dtransfer = utils.dsigmoid
+      self.learning_rate = learning_rate
+      self.num_iterations = num_iterations
+      self.batch_size = batch_size
+      self.lambda_reg = lambda_reg
+      self.lr_annealing = lr_annealing
+      self.regularization = regularization
+      self.initialize_network()
 
-        # Create random {0,1} weights to define features
-        self.wi = np.random.random((self.ni, self.nh))
-        self.wo = np.random.random((self.nh, self.no))
-        self.bi = np.zeros(self.nh)
-        self.bo = np.zeros(self.no)
+    def initialize_network(self):
+      self.network = []
+      self.wi = np.random.random((self.ni, self.nh))
+      self.wo = np.random.random((self.nh, self.no))
+      self.bi = np.zeros(self.nh)
+      self.bo = np.zeros(self.no)
+      hidden_layer = {'W':self.wi, 'B':self.bi}
+      self.network.append(hidden_layer)
+      output_layer = {'W':self.wo, 'B':self.bo}
+      self.network.append(output_layer)
 
-        self.network = []
-        self.network.append(Dense(self.wi, self.bi, self.learning_rate))
-        self.network.append(Dense(self.wo, self.bo, self.learning_rate))
+    def activate(self, layer, input):
+      return np.dot(input, layer['W']) + layer['B']
 
-    def helper(self, Xtrain):
+    def forward_propagation(self, input):
       activations = []
+      for layer in self.network:
+          result = self.transfer(self.activate(layer, input))
+          layer['O'] = result
+          activations.append(result)
+          input = result
+      return input
+
+    def evaluate(self, ytrain):
+      reg_term = 0
+      for i in reversed(range(len(self.network))):
+        error = []
+        if self.regularization == True:
+          reg_term = 0.5 * self.lambda_reg * np.sum(np.square(self.network[i]['W']))
+        if (i == len(self.network)-1):
+          e = self.network[i]['O'] - ytrain + reg_term
+        else:
+          e = np.dot(self.network[i+1]['DW'],self.network[i+1]['W'].T) + reg_term
+        error.append(e)
+        self.network[i]['DW'] = e * self.dtransfer(self.network[i]['O'])
+        self.network[i]['DB'] = np.sum(e, axis=0)
+
+    def weight_update(self, input, itr):
+      annealling_factor = 1
       for i in range(len(self.network)):
-          activations.append(self.transfer(self.network[i].forward(Xtrain)))
-          Xtrain = self.transfer(self.network[i].forward(Xtrain))
-      return activations
-
-    def evaluate(self, Xtrain, ytrain, itr):
-      # Forward propagations
-      activations = self.helper(Xtrain)
-
-      # Backpropagation
-      last_layer = activations[-1]
-      reg_term = 0.5*self.lambda_reg*np.sum(np.square(self.wo))
-      reg_term = 0 #comment this to use regularization
-      loss = utils.cross_entropy(last_layer, ytrain) + reg_term 
-      loss_grad = self.dtransfer(last_layer)
-      for i in range(1, len(self.network)):
-          loss_grad = self.network[len(self.network) - i].backward(activations[len(self.network) - i - 1], loss*loss_grad, itr, self.num_iterations)
-      return loss
+        if (i!=0):
+          input = self.network[i-1]['O']
+        if self.lr_annealing == True:
+          annealling_factor = (1/(1+(itr/self.num_iterations)))
+        self.network[i]['W'] -= self.learning_rate * annealling_factor * np.dot(input.T,self.network[i]['DW'])
+        # self.network[i]['B'] -= self.learning_rate * self.network[i]['DB']
 
     def make_batches(self, X, y):
       batches = []
@@ -353,24 +349,24 @@ class NeuralNet(Classifier):
       val_log = []
       for epoch in range(self.num_iterations):
           Xtrain, Xval, ytrain, yval = train_test_split(X, y, test_size=0.2)
-          tot_loss = 0
           for x,y_class in self.make_batches(Xtrain,ytrain):
-              loss = self.evaluate(x,y_class,epoch)
-              tot_loss += loss
+              output = self.forward_propagation(x)
+              self.evaluate(y_class)
+              self.weight_update(x, epoch)
           
           train_log.append(np.mean(self.predict(Xtrain)==ytrain.argmax(axis = 1)))
-          val_log.append(np.mean(self.predict(Xval)==yval))
+          val_log.append(np.mean(self.predict(Xval)==yval.argmax(axis = 1)))
           
-          # print("Epoch",epoch," Train loss:",tot_loss)
-          # print("Train accuracy:",train_log[-1])
-          # print("Val accuracy:",val_log[-1])
+          print("Epoch",epoch)
+          print("Train accuracy:",train_log[-1])
+          print("Val accuracy:",val_log[-1])
             
-    def predict(self,Xtrain):
+    def predict(self,X):
       try:
-        Xtrain = Xtrain.toarray()
-        logits = self.helper(Xtrain)[-1]
+        X = X.toarray()
+        logits = self.forward_propagation(X)
       except:
-        logits = self.helper(Xtrain)[-1]
+        logits = self.forward_propagation(X)
       return logits.argmax(axis=-1)
     
     

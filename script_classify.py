@@ -120,10 +120,30 @@ def getaccuracy(ytest, predictions):
 def plot(accuracy, hidden, title):
   plt.figure()
   plt.plot(hidden, accuracy)
-  plt.legend()
   plt.xlabel("Hidden Units")
   plt.ylabel("Accuracy")
   plt.savefig(f'experiment_{title}.png')
+
+def normalize_dataset(trainset, testset):
+  maximums = np.amax(trainset[0], axis = 0)
+  minimums = np.amin(trainset[0], axis = 0)
+  diff = maximums - minimums
+  trainset_n = (trainset[0]-minimums)/diff
+  testset_n = (testset[0]-minimums)/diff
+  return (trainset_n,trainset[1]), (testset_n,testset[1])
+
+def downsample_dataset(trainset):
+  x = np.unique(trainset[1], return_counts = True)
+  min_count = np.min(x[1])
+  class_0 = np.where(trainset[1]==0)
+  class_1 = np.where(trainset[1]==1)
+  idx_0 = random.sample(list(class_0[0]), min_count)
+  idx_1 = random.sample(list(class_1[0]), min_count)
+  idx = idx_0 + idx_1
+  new_set = (trainset[0][idx], trainset[1][idx])
+  return new_set
+
+
 
 if __name__ == '__main__':
 
@@ -134,7 +154,10 @@ if __name__ == '__main__':
     if filename == 'disease.csv':
       splitratio = 0.8
       dataset = loadcsv(filename)
-      trainset, testset = splitdataset(dataset, splitratio)
+      trainset_u, testset_u = splitdataset(dataset, splitratio)
+      trainset_n, testset_n = normalize_dataset(trainset_u, testset_u)
+      trainset = downsample_dataset(trainset_n)
+      testset = downsample_dataset(testset_n)
       print(f'Split {len(dataset)} rows into train={trainset[0].shape[0]} and test={testset[0].shape[0]} rows.')
       hn_list = [64] #[8,16,32,64,128,256]
       acc_list = []
@@ -145,7 +168,7 @@ if __name__ == '__main__':
                     # 'Random': algs.Classifier(),
                     # 'Naive Bayes': algs.NaiveBayes('disease'),
                     # 'Logistic Regression': algs.LogitReg(dataset='disease',learning_rate =.01, num_iterations = 100, run_stochastic=False),
-                    'Neural Network': algs.NeuralNet(dataset='disease', params = params_NN, learning_rate = 0.01, num_iterations = 50, batch_size = 8, lambda_reg = 0.001)
+                    'Neural Network': algs.NeuralNet(dataset='disease', params = params_NN, learning_rate = 0.01, num_iterations = 30, batch_size = 4, lambda_reg = 0.001, lr_annealing = True, regularization = True)
                     }
         for learnername, learner in classalgs.items():
           print('Running learner = ' + learnername)
@@ -155,10 +178,8 @@ if __name__ == '__main__':
           accuracy = getaccuracy(testset[1], predictions)
           print('Accuracy for ' + learnername + ': ' + str(accuracy))
           acc_list.append(accuracy)
-      plt.plot(hn_list, acc_list)
-      plt.xlabel("Number of hidden neurons")
-      plt.ylabel("Accuracy")
-      plt.savefig("Disease.png")
+      plot(acc_list,hn_list,filename)
+      
 
     elif filename == 'IMDB_Dataset.csv':
       dataset = loadIMDB(filename)
@@ -172,7 +193,7 @@ if __name__ == '__main__':
                     # 'Random': algs.Classifier(),
                     # 'Naive Bayes': algs.NaiveBayes('IMDB', class_0, class_1),
                     # 'Logistic Regression': algs.LogitReg(dataset='IMDB', learning_rate=.01, num_iterations=10, run_stochastic=True),
-                    'Neural Network': algs.NeuralNet(dataset='IMDB',  params = params_NN, learning_rate = 0.01, num_iterations = 150, batch_size = 8, lambda_reg = 0.001)
+                    'Neural Network': algs.NeuralNet(dataset='IMDB',  params = params_NN, learning_rate = 0.01, num_iterations = 20, batch_size = 4, lambda_reg = 0.001, lr_annealing = True, regularization = True)
                     }
         for learnername, learner in classalgs.items():
           print('Running learner = ' + learnername)
@@ -182,7 +203,4 @@ if __name__ == '__main__':
           accuracy = getaccuracy(testset[1], predictions)
           print('Accuracy for ' + learnername + ': ' + str(accuracy))
           acc_list.append(accuracy)
-      plt.plot(hn_list, acc_list)
-      plt.xlabel("Number of hidden neurons")
-      plt.ylabel("Accuracy")
-      plt.savefig("Disease.png")
+      plot(acc_list,hn_list,filename)
