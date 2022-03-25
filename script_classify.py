@@ -149,7 +149,7 @@ if __name__ == '__main__':
 
     ## uncomment desired data file
     filename = 'disease.csv'
-    # filename = 'IMDB_Dataset.csv'
+    filename = 'IMDB_Dataset.csv'
 
     if filename == 'disease.csv':
       splitratio = 0.8
@@ -159,16 +159,19 @@ if __name__ == '__main__':
       trainset = downsample_dataset(trainset_n)
       testset = downsample_dataset(testset_n)
       print(f'Split {len(dataset)} rows into train={trainset[0].shape[0]} and test={testset[0].shape[0]} rows.')
-      hn_list = [64] #[8,16,32,64,128,256]
+      hn_list = [128] #[8,16,32,64,128,256]
       acc_list = []
       
       for hidden_neurons in hn_list:
         params_NN = {'ni':trainset[0].shape[1], 'nh': hidden_neurons, 'no': 2}
         classalgs = {
-                    # 'Random': algs.Classifier(),
-                    # 'Naive Bayes': algs.NaiveBayes('disease'),
-                    # 'Logistic Regression': algs.LogitReg(dataset='disease',learning_rate =.01, num_iterations = 100, run_stochastic=False),
-                    'Neural Network': algs.NeuralNet(dataset='disease', params = params_NN, learning_rate = 0.01, num_iterations = 30, batch_size = 4, lambda_reg = 0.001, lr_annealing = True, regularization = True)
+                    'Random': algs.Classifier(),
+                    'Naive Bayes': algs.NaiveBayes('disease'),
+                    'Logistic Regression': algs.LogitReg(dataset='disease',learning_rate =0.01, num_iterations = 10, run_stochastic=False),
+                    'Neural Network': algs.NeuralNet(dataset='disease', params = params_NN, learning_rate = 0.01, num_iterations = 30, batch_size = 4, lambda_reg = 0.001, lr_annealing = False, regularization = False),
+                    'Neural Network with LR Annealling': algs.NeuralNet(dataset='disease', params = params_NN, learning_rate = 0.01, num_iterations = 30, batch_size = 4, lambda_reg = 0.001, lr_annealing = True, regularization = False),
+                    'Neural Network with Regularization': algs.NeuralNet(dataset='disease', params = params_NN, learning_rate = 0.01, num_iterations = 30, batch_size = 4, lambda_reg = 0.001, lr_annealing = False, regularization = True),
+                    'Neural Network with LR Annealling & Regularization': algs.NeuralNet(dataset='disease', params = params_NN, learning_rate = 0.01, num_iterations = 30, batch_size = 4, lambda_reg = 0.001, lr_annealing = True, regularization = True)
                     }
         for learnername, learner in classalgs.items():
           print('Running learner = ' + learnername)
@@ -178,22 +181,25 @@ if __name__ == '__main__':
           accuracy = getaccuracy(testset[1], predictions)
           print('Accuracy for ' + learnername + ': ' + str(accuracy))
           acc_list.append(accuracy)
-      plot(acc_list,hn_list,filename)
+      # plot(acc_list,hn_list,filename)
       
 
     elif filename == 'IMDB_Dataset.csv':
       dataset = loadIMDB(filename)
       trainset, testset, class_0, class_1 = splitIMDB(dataset)
       print(f'Split {len(dataset)} rows into train={trainset[0].shape[0]} and test={testset[0].shape[0]} rows')
-      hn_list = [256]
+      hn_list = [128] #[8, 16, 32, 64, 128, 256, 512, 1024]
       acc_list = []
       for hidden_neurons in hn_list:
         params_NN = {'ni':trainset[0].shape[1], 'nh': hidden_neurons, 'no': 2}
         classalgs = {
-                    # 'Random': algs.Classifier(),
-                    # 'Naive Bayes': algs.NaiveBayes('IMDB', class_0, class_1),
-                    # 'Logistic Regression': algs.LogitReg(dataset='IMDB', learning_rate=.01, num_iterations=10, run_stochastic=True),
-                    'Neural Network': algs.NeuralNet(dataset='IMDB',  params = params_NN, learning_rate = 0.01, num_iterations = 20, batch_size = 4, lambda_reg = 0.001, lr_annealing = True, regularization = True)
+                    'Random': algs.Classifier(),
+                    'Naive Bayes': algs.NaiveBayes('IMDB', class_0, class_1),
+                    'Logistic Regression': algs.LogitReg(dataset='IMDB', learning_rate=0.01, num_iterations=10, run_stochastic=True),
+                    'Neural Network': algs.NeuralNet(dataset='IMDB', params = params_NN, learning_rate = 0.01, num_iterations = 30, batch_size = 4, lambda_reg = 0.001, lr_annealing = False, regularization = False),
+                    'Neural Network with LR Annealling': algs.NeuralNet(dataset='IMDB', params = params_NN, learning_rate = 0.01, num_iterations = 30, batch_size = 4, lambda_reg = 1e-9, lr_annealing = True, regularization = False),
+                    'Neural Network with Regularization': algs.NeuralNet(dataset='IMDB', params = params_NN, learning_rate = 0.01, num_iterations = 30, batch_size = 4, lambda_reg = 1e-9, lr_annealing = False, regularization = True),
+                    'Neural Network with LR Annealling & Regularization': algs.NeuralNet(dataset='IMDB', params = params_NN, learning_rate = 0.01, num_iterations = 30, batch_size = 4, lambda_reg = 1e-9, lr_annealing = True, regularization = True)
                     }
         for learnername, learner in classalgs.items():
           print('Running learner = ' + learnername)
@@ -203,4 +209,8 @@ if __name__ == '__main__':
           accuracy = getaccuracy(testset[1], predictions)
           print('Accuracy for ' + learnername + ': ' + str(accuracy))
           acc_list.append(accuracy)
-      plot(acc_list,hn_list,filename)
+      # plot(acc_list,hn_list,filename)
+
+# References:
+# 1. https://machinelearningmastery.com/implement-backpropagation-algorithm-scratch-python/
+# 2. https://www.geeksforgeeks.org/implementation-of-logistic-regression-from-scratch-using-python/

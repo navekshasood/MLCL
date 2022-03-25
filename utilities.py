@@ -33,11 +33,15 @@ def threshold_probs(probs):
 #
 #    return fmin(loss, initparams)
 
-def gradient_descent(lr, theta, X, y):
+def gradient_descent(lr, theta, b, X, y):
     ## gradient descent
     m = y.size
-    theta = theta - lr*(1.0/m) * np.dot(np.transpose(X),(np.dot(X,theta)-y))
-    return theta
+    output = sigmoid((np.dot(X,theta)+b))
+    error = output-y
+    dw = (1.0/m)*np.dot(np.transpose(X),error)
+    theta -= lr*dw
+    b -= lr*(1.0/m)*np.sum(error)
+    return theta, b
 
 def cross_entropy(y_pred, y):
   loss=-np.sum(y*np.log(y_pred + 1e-8))

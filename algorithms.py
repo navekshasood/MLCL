@@ -200,67 +200,38 @@ class NaiveBayes(Classifier):
     
 class LogitReg(Classifier):
     def __init__( self, dataset, learning_rate, num_iterations, run_stochastic):
-
         self.weights = None
+        self.bias = 0
         self.dataset = dataset
         self.learning_rate = learning_rate
         self.num_iters = num_iterations
-
-        ## choose regular or stochastic gradient descent
-        ## need to do stochastic for IMDB dataset
         self.run_stochastic = run_stochastic
         
     def learn(self, Xtrain, ytrain):
-        """ Learns using the traindata """
         self.weights = np.zeros(Xtrain.shape[1],)
-
-        #lossfcn = lambda w: self.logit_cost(w, Xtrain,ytrain)
-        #self.weights = utils.fmin_simple(lossfcn, self.weights)
-
-        ## utilizes gradient descent, I avoided putting the loop in logit_cost()
-
-        ## stochastic gradient descent
         if self.run_stochastic == True:
           num_samples = Xtrain.shape[0]
-          #num_samples = 1 #testing
           for i in range(self.num_iters):
-            #if i % 10 == 0:
-            # print("-"*100 + f"\nITERATION: {i}\n" + "-"*100)
             for j in range(num_samples):
-              # if j % 5000 == 0:
-              #   print("-"*100 + f"\nSAMPLE: {j}\n" + "-"*100)
-              cost = self.logit_cost(self.weights, Xtrain, ytrain) # currently don't do anything with this
-              self.weights = utils.gradient_descent(self.learning_rate, self.weights, Xtrain[j].toarray(), ytrain[j])
-
-        ## batch gradient descent
+              self.weights, self.bias = utils.gradient_descent(self.learning_rate, self.weights, self.bias, Xtrain[j].toarray(), ytrain[j])
+            ypred = self.predict(Xtrain)
+            # print("Epoch",i+1)
+            # print("Train accuracy:",np.mean(ypred==ytrain))
         else:
           for i in range(self.num_iters):
-            #if i % 10 == 0:
-            #  print(f"ITERATION: {i}\n" + "-"*100)
-            cost = self.logit_cost(self.weights, Xtrain, ytrain) # currently don't do anything with this
-            self.weights = utils.gradient_descent(self.learning_rate, self.weights, Xtrain, ytrain)
-        
+            self.weights, self.bias = utils.gradient_descent(self.learning_rate, self.weights, self.bias, Xtrain, ytrain)
+            ypred = self.predict(Xtrain)
+            # print("Epoch",i+1)
+            # print("Train accuracy:",np.mean(ypred==ytrain))
+
     def predict(self, Xtest):
         if self.dataset == "IMDB":
-          ##convert sparse matrix to array so we can pass to sigmoid
           Xtest_conv = Xtest.toarray()
         elif self.dataset == "disease":
           Xtest_conv = Xtest
         probs = utils.sigmoid(np.dot(Xtest_conv, self.weights))
-        ytest = utils.threshold_probs(probs)  
+        ytest = utils.threshold_probs(probs) 
         return ytest
- 
-    def logit_cost(self, theta,X,y): 
-        tt = X.shape[0] # number of training examples
-        theta = np.reshape(theta,(len(theta),1))
-        m = y.size
-
-        J = (1./tt) * (-np.transpose(y).dot(np.log(utils.sigmoid(X.dot(theta)))) - np.transpose(1-y).dot(np.log(1-utils.sigmoid(X.dot(theta)))))
-    	
-      ## should the loop for gradient descent be in here instead of in learn()?
-
-    	# When you write your own minimizers, you will also return a gradient here
-        return J[0]#,grad
 
 class NeuralNet(Classifier):
     def __init__(self, dataset, params, learning_rate, num_iterations, batch_size, lambda_reg, lr_annealing, regularization):
@@ -357,17 +328,17 @@ class NeuralNet(Classifier):
           train_log.append(np.mean(self.predict(Xtrain)==ytrain.argmax(axis = 1)))
           val_log.append(np.mean(self.predict(Xval)==yval.argmax(axis = 1)))
           
-          print("Epoch",epoch)
-          print("Train accuracy:",train_log[-1])
-          print("Val accuracy:",val_log[-1])
+          # print("Epoch",epoch)
+          # print("Train accuracy:",train_log[-1])
+          # print("Val accuracy:",val_log[-1])
             
     def predict(self,X):
       try:
         X = X.toarray()
-        logits = self.forward_propagation(X)
+        output_prob = self.forward_propagation(X)
       except:
-        logits = self.forward_propagation(X)
-      return logits.argmax(axis=-1)
+        output_prob = self.forward_propagation(X)
+      return output_prob.argmax(axis=-1)
     
     
 
