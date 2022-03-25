@@ -24,8 +24,6 @@ class Classifier:
 class NaiveBayes(Classifier):
 
     def __init__( self, dataset, class_0=None, class_1=None):
-        """ Initializes parameters for a naive bayes model """
-
         self.dataset = dataset # name of dataset
         self.num_classes = 2 # number of classes (0 and 1)
         self.num_features = None # 0-7 for disease, vocab size for IMDB
@@ -33,21 +31,16 @@ class NaiveBayes(Classifier):
         self.weights = None # learned weights for each feature for each class
         self.P_y = None # P(y), probability of each label
 
-        ## optional arguments, relevant for IMDB
-        ## class-separated data
         if class_0 is not None:
           self.class_0 = class_0
         if class_1 is not None:
           self.class_1 = class_1
         
     def learn(self, Xtrain, ytrain):
-
-        ## calculate probability for each class
         sum_y = np.zeros((self.num_classes)) # shape (2,)
         for label in range(self.num_classes):
           sum_y[label] = (ytrain == label).sum()
         self.P_y = sum_y / sum_y.sum()
-        #print(f"P_y:\n {self.P_y}")
 
         ## create lookup dict for each value of each feature for each class
         self.num_features = Xtrain.shape[1]
@@ -132,10 +125,6 @@ class NaiveBayes(Classifier):
       predictions = []
 
       for i in range(num_test_samples): # iterate through rows
-
-        # if i % 1000 == 0:
-        #   print("-"*100 + f"\nSAMPLE: {i}\n" + "-"*100)
-
         ## create array for storing summation values, to be used with argmax
         summation = np.zeros((self.num_classes))
 
